@@ -1,0 +1,24 @@
+[package]
+name = "cfggraft-cli"
+description = "Command line front end for cfggraft: inject declared items into config files owned by another program."
+readme = "README.md"
+keywords = ["config", "merge", "dotfiles", "cli"]
+categories = ["command-line-utilities"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+
+# The crate is cfggraft-cli so that the library can keep the name `cfggraft`; the binary
+# it installs is still `cfggraft`, which is what anyone actually types.
+[[bin]]
+name = "cfggraft"
+path = "src/main.rs"
+
+[dependencies]
+cfggraft.workspace = true
+clap.workspace = true
+serde_json.workspace = true

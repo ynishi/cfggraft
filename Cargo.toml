@@ -1,0 +1,34 @@
+[workspace]
+resolver = "2"
+members = ["crates/cfggraft", "crates/cfggraft-cli"]
+
+# Shared so the two crates move as one. They are released together, and a
+# version skew between a library and the command line front end that exists only
+# to drive it would be a distinction without a difference.
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+authors = ["Yutaka Nishimura <ytk.nishimura@gmail.com>"]
+repository = "https://github.com/ynishi/cfggraft"
+homepage = "https://github.com/ynishi/cfggraft"
+# Both crates point at the library's documentation deliberately: the model, the
+# decision table, and what a representation has to implement all live there, and
+# the command line is one caller of it. `description` is not shared — the two
+# crates are different things, so each states its own.
+documentation = "https://docs.rs/cfggraft"
+
+[workspace.dependencies]
+# Both a version and a path: the path is what builds inside this workspace, the
+# version is what a publish resolves against the registry. Dropping the version
+# would make the published crate unresolvable; dropping the path would make the
+# workspace build against a registry copy that does not exist yet.
+cfggraft = { version = "0.1.0", path = "crates/cfggraft" }
+clap = { version = "4", features = ["derive"] }
+# preserve_order: the target file belongs to another program. Reordering its
+# keys on every write turns a one-item injection into a whole-file diff.
+serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.10"
+
+[profile.release]
+strip = true

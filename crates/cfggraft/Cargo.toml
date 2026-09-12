@@ -1,0 +1,17 @@
+[package]
+name = "cfggraft"
+description = "Inject declared items into config files owned by another program. Applies what it can prove it wrote, reports what it cannot, and never overwrites a disagreement."
+readme = "README.md"
+keywords = ["config", "merge", "dotfiles", "idempotent"]
+categories = ["config", "filesystem"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+
+[dependencies]
+serde_json.workspace = true
+sha2.workspace = true

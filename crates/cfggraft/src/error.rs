@@ -85,8 +85,11 @@ mod tests {
 
     #[test]
     fn io_errors_name_the_path() {
-        let e = Error::io("/tmp/x", io::Error::new(io::ErrorKind::NotFound, "nope"));
-        assert!(e.to_string().starts_with("/tmp/x: "), "got: {e}");
+        let e = Error::io(
+            "settings.json",
+            io::Error::new(io::ErrorKind::NotFound, "nope"),
+        );
+        assert!(e.to_string().starts_with("settings.json: "), "got: {e}");
     }
 
     #[test]

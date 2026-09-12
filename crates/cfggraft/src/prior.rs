@@ -36,7 +36,7 @@
 //! {
 //!   "version": 1,
 //!   "targets": {
-//!     "/home/me/.config/some-app/settings.json": {
+//!     "/etc/some-app/settings.json": {
 //!       "env.EDITOR": "\"hx\""
 //!     }
 //!   }

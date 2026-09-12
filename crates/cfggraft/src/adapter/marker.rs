@@ -376,6 +376,21 @@ mod tests {
     }
 
     #[test]
+    fn adoption_alters_the_document_even_though_no_item_changed() {
+        // The decision here is Skip — the span already holds the declared body —
+        // but the document still gains the digest that claims it. A caller that
+        // decides whether to write by asking the report what changed would drop
+        // that, and the region would stay unclaimable for ever.
+        let input = "<!-- ===PROFILE=== -->\nmanaged\n<!-- ===/PROFILE=== -->\n";
+        let mut s = MarkerSpan::new(input, "PROFILE", "managed\n", HTML, None, false).unwrap();
+        let (report, out) = run(&mut s, Options::default()).unwrap();
+
+        assert!(!report.changed(), "no item changed");
+        assert_ne!(out.document, input, "yet the document did");
+        assert!(out.document.contains("sha256="));
+    }
+
+    #[test]
     fn a_missing_marker_without_init_is_an_error() {
         let err = MarkerSpan::new("x\n", "PROFILE", "b\n", HTML, None, false).unwrap_err();
         assert!(err.to_string().contains("--init"), "got: {err}");

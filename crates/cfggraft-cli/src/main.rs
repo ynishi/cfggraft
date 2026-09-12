@@ -230,7 +230,14 @@ fn run() -> Result<u8> {
                 .ok_or_else(|| Error::invalid("--in-place needs --file"))?;
             // Leave the file alone when nothing changed, rather than rewriting
             // identical bytes and moving its modification time.
-            if report.changed() {
+            //
+            // The test is the rendered document against what was read, not
+            // `report.changed()`. A decision can leave every item alone while
+            // still altering the document: adopting a marker region records a
+            // digest in the file itself, and gating on the items would drop
+            // that record and leave the region unclaimable for ever.
+            let original = read_target(&common.file)?;
+            if output.document != original {
                 atomic::write(path, &output.document)?;
             }
         } else {

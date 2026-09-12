@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 `cfggraft` and `cfggraft-cli` are versioned together and released as one.
 
+## [0.1.1] - 2026-09-12
+
+### Fixed
+
+- `region` now records its digest when it adopts a span that already holds the
+  declared body. The decision in that case is a skip, and the command line
+  decided whether to write the file by asking the report what had changed — so
+  the digest was rendered and then thrown away. A region adopted rather than
+  created by `--init` therefore never became claimable, and the hand-edit check
+  that the markers exist for never activated. The file is now written whenever
+  the rendered document differs from what was read, which is also what the
+  "leave the file alone when nothing changed" promise actually meant.
+
 ## [0.1.0] - 2026-09-12
 
 First release.
@@ -33,4 +46,5 @@ First release.
   rename, with the original mode carried over.
 - Exit status 2 reserved for drift alone, distinct from failure (1).
 
+[0.1.1]: https://github.com/ynishi/cfggraft/releases/tag/v0.1.1
 [0.1.0]: https://github.com/ynishi/cfggraft/releases/tag/v0.1.0

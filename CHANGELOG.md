@@ -6,7 +6,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 `cfggraft` and `cfggraft-cli` are versioned together and released as one.
 
-## [0.2.0] - unreleased
+## [0.2.0] - 2026-09-13
 
 ### Changed
 

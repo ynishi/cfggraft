@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 `cfggraft` and `cfggraft-cli` are versioned together and released as one.
 
+## [0.2.1] - 2026-09-13
+
+### Changed
+
+- README: the status section said the crates were unpublished and that
+  `Cargo.toml` carried no repository link. Both had been untrue since 0.1.0.
+  The install instructions now lead with the registry.
+
 ## [0.2.0] - 2026-09-13
 
 ### Changed
@@ -70,6 +78,7 @@ First release.
   rename, with the original mode carried over.
 - Exit status 2 reserved for drift alone, distinct from failure (1).
 
+[0.2.1]: https://github.com/ynishi/cfggraft/releases/tag/v0.2.1
 [0.2.0]: https://github.com/ynishi/cfggraft/releases/tag/v0.2.0
 [0.1.1]: https://github.com/ynishi/cfggraft/releases/tag/v0.1.1
 [0.1.0]: https://github.com/ynishi/cfggraft/releases/tag/v0.1.0

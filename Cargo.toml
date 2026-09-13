@@ -6,7 +6,7 @@ members = ["crates/cfggraft", "crates/cfggraft-cli"]
 # version skew between a library and the command line front end that exists only
 # to drive it would be a distinction without a difference.
 [workspace.package]
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 authors = ["Yutaka Nishimura <ytk.nishimura@gmail.com>"]
@@ -23,7 +23,7 @@ documentation = "https://docs.rs/cfggraft"
 # version is what a publish resolves against the registry. Dropping the version
 # would make the published crate unresolvable; dropping the path would make the
 # workspace build against a registry copy that does not exist yet.
-cfggraft = { version = "0.2.0", path = "crates/cfggraft" }
+cfggraft = { version = "0.2.1", path = "crates/cfggraft" }
 clap = { version = "4", features = ["derive"] }
 # preserve_order: the target file belongs to another program. Reordering its
 # keys on every write turns a one-item injection into a whole-file diff.

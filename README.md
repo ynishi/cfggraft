@@ -201,8 +201,11 @@ means adding an adapter; no other module changes.
 ## Install
 
 ```sh
-cargo install --path crates/cfggraft-cli
+cargo install cfggraft-cli
 ```
+
+From a checkout, `cargo install --path crates/cfggraft-cli`. Either way the
+binary is `cfggraft`.
 
 ## Development
 
@@ -215,6 +218,6 @@ cargo fmt --check
 
 ## Status
 
-0.1.0. Not published. `Cargo.toml` deliberately carries no `repository` or
-`homepage` — a publish gate should fail loudly on that rather than pass on a
-guessed URL.
+Early. Published on crates.io as `cfggraft` and `cfggraft-cli`, versioned and
+released together; `CHANGELOG.md` says what each version changed. The interface
+may still move before 1.0.

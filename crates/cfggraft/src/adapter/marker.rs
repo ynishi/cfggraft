@@ -33,6 +33,35 @@
 //! Without that check a "generated" span silently eats whatever is typed into
 //! it, which inverts the reason for having markers at all.
 //!
+//! # What is a marker line
+//!
+//! A marker is a whole line in the configured comment style, and nothing else
+//! on that line:
+//!
+//! ```text
+//! marker := indent* opener ws* token (ws anything)? closer ws*
+//! token  := ===NAME===  |  ===/NAME===
+//! html   :  opener "<!--", closer "-->" on the same line, nothing after it
+//! hash   :  opener "#", no closer
+//! ```
+//!
+//! The token must be followed by the end of the comment or by whitespace, so
+//! `===PROFILE===` does not match `===PROFILE2===`. Text after the token and
+//! inside the comment is allowed; that is where the begin marker carries its
+//! provenance. Indentation is allowed. Everything else is not a marker: a
+//! mention in prose, a marker inside backticks or in the middle of a line, a
+//! marker in the other comment style, or a comment with text after its closer.
+//! Those lines are theirs, and the contract that everything outside the markers
+//! is left alone holds for them too.
+//!
+//! A line inside a fenced code block that has this shape is still a marker;
+//! fences are not tracked. A file that holds the same begin marker twice is
+//! refused rather than having the first occurrence win, so an example region
+//! in a file that also holds the real one has to use a different name.
+//!
+//! A marker name consists of ASCII letters, digits, `_`, `-` and `.`, since
+//! anything else — whitespace, `=`, `/` — would blur the edge of the token.
+//!
 //! # The marker name is a long-lived contract
 //!
 //! Renaming a marker orphans every file carrying the old name: the span stops
@@ -93,12 +122,41 @@ fn end_line(name: &str, style: CommentStyle) -> String {
     }
 }
 
-fn is_begin(line: &str, name: &str) -> bool {
-    line.contains(&format!("==={name}===")) && !is_end(line, name)
+/// The inside of `line` if the whole line is one comment in `style`.
+///
+/// Indentation and trailing whitespace are ignored. For `html` the closer has
+/// to end the line: a comment followed by text is not a marker line, since the
+/// text would be overwritten along with it.
+fn comment_text(line: &str, style: CommentStyle) -> Option<&str> {
+    let t = line.trim();
+    match style {
+        CommentStyle::Html => t.strip_prefix("<!--")?.strip_suffix("-->"),
+        CommentStyle::Hash => t.strip_prefix('#'),
+    }
+    .map(str::trim)
 }
 
-fn is_end(line: &str, name: &str) -> bool {
-    line.contains(&format!("===/{name}==="))
+/// Whether `text` starts with `token` as a whole word: at the end of the text,
+/// or followed by whitespace. `===P===` must not match `===P2===`.
+fn leads_with(text: &str, token: &str) -> bool {
+    text.strip_prefix(token)
+        .is_some_and(|rest| rest.is_empty() || rest.starts_with(char::is_whitespace))
+}
+
+fn is_begin(line: &str, name: &str, style: CommentStyle) -> bool {
+    comment_text(line, style).is_some_and(|t| leads_with(t, &format!("==={name}===")))
+}
+
+fn is_end(line: &str, name: &str, style: CommentStyle) -> bool {
+    comment_text(line, style).is_some_and(|t| leads_with(t, &format!("===/{name}===")))
+}
+
+/// Whether `name` can sit inside `===NAME===` without blurring its edges.
+fn is_valid_name(name: &str) -> bool {
+    !name.is_empty()
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'))
 }
 
 /// Pull the recorded digest out of a begin marker, if it carries one.
@@ -154,16 +212,36 @@ impl MarkerSpan {
         if name.is_empty() {
             return Err(Error::invalid("a marker name must not be empty"));
         }
+        if !is_valid_name(name) {
+            return Err(Error::invalid(format!(
+                "marker name `{name}` may contain only ASCII letters, digits, `_`, `-` and `.`"
+            )));
+        }
         let lines: Vec<String> = target.lines().map(str::to_string).collect();
         let trailing_newline = target.is_empty() || target.ends_with('\n');
 
-        let span = match lines.iter().position(|l| is_begin(l, name)) {
+        // A region is one item, so a file holds its begin marker once. Letting
+        // the first occurrence win would silently manage the wrong one — an
+        // example region in a fenced code block, say — and leave the real one
+        // below it untouched.
+        let begins: Vec<usize> = (0..lines.len())
+            .filter(|&i| is_begin(&lines[i], name, style))
+            .collect();
+        if begins.len() > 1 {
+            let at: Vec<String> = begins.iter().map(|i| (i + 1).to_string()).collect();
+            return Err(Error::invalid(format!(
+                "marker `{name}` begins on lines {}; a region is one item, so a file holds it once",
+                at.join(", ")
+            )));
+        }
+
+        let span = match begins.first().copied() {
             Some(begin) => {
                 let end = lines
                     .iter()
                     .enumerate()
                     .skip(begin + 1)
-                    .find(|(_, l)| is_end(l, name))
+                    .find(|(_, l)| is_end(l, name, style))
                     .map(|(i, _)| i)
                     .ok_or_else(|| {
                         Error::invalid(format!(
@@ -492,9 +570,114 @@ mod tests {
 
     #[test]
     fn an_end_marker_is_not_mistaken_for_a_begin_marker() {
-        assert!(is_begin("<!-- ===PROFILE=== x -->", "PROFILE"));
-        assert!(!is_begin("<!-- ===/PROFILE=== -->", "PROFILE"));
-        assert!(is_end("<!-- ===/PROFILE=== -->", "PROFILE"));
+        assert!(is_begin("<!-- ===PROFILE=== x -->", "PROFILE", HTML));
+        assert!(!is_begin("<!-- ===/PROFILE=== -->", "PROFILE", HTML));
+        assert!(is_end("<!-- ===/PROFILE=== -->", "PROFILE", HTML));
+    }
+
+    #[test]
+    fn a_marker_is_a_whole_comment_line_in_the_configured_style() {
+        let generated = begin_line("P", Some("src/"), Some(&"a".repeat(64)), HTML);
+        let hash_generated = begin_line("P", None, None, CommentStyle::Hash);
+        let cases: &[(&str, CommentStyle, bool)] = &[
+            // Marker lines.
+            (generated.as_str(), HTML, true),
+            ("<!-- ===P=== -->", HTML, true),
+            ("<!--===P===-->", HTML, true),
+            ("   <!-- ===P=== -->", HTML, true),
+            ("<!-- ===P=== -->   ", HTML, true),
+            (hash_generated.as_str(), CommentStyle::Hash, true),
+            ("# ===P=== extra words", CommentStyle::Hash, true),
+            ("#===P===", CommentStyle::Hash, true),
+            // Not marker lines.
+            ("<!-- ===P2=== -->", HTML, false),
+            ("<!-- ===P===x -->", HTML, false),
+            ("read up to `<!-- ===P=== -->` first", HTML, false),
+            ("the marker name ===P=== appears in prose", HTML, false),
+            ("<!-- ===P=== --> is the begin line", HTML, false),
+            ("<!-- ===P===", HTML, false),
+            ("# ===P===", HTML, false),
+            ("<!-- ===P=== -->", CommentStyle::Hash, false),
+            ("## ===P===", CommentStyle::Hash, false),
+            ("#!/bin/sh ===P===", CommentStyle::Hash, false),
+        ];
+        for (line, style, expected) in cases {
+            assert_eq!(
+                is_begin(line, "P", *style),
+                *expected,
+                "is_begin({line:?}, {style:?})"
+            );
+            assert!(!is_end(line, "P", *style), "is_end({line:?}, {style:?})");
+        }
+        assert!(is_end("  <!-- ===/P=== -->", "P", HTML));
+        assert!(is_end("# ===/P===", "P", CommentStyle::Hash));
+        assert!(!is_end("see `<!-- ===/P=== -->`", "P", HTML));
+    }
+
+    #[test]
+    fn a_line_that_mentions_the_marker_is_not_the_marker() {
+        // Issue #1: the begin marker mentioned in prose, above the real region.
+        // Adopting with --force used to rewrite the sentence into a marker line.
+        let input = "intro\n\nread up to the marker line (`<!-- ===PROFILE=== -->`) first,\n\
+                     then stop at `<!-- ===/PROFILE=== -->`.\n\n\
+                     <!-- ===PROFILE=== -->\nbody\n<!-- ===/PROFILE=== -->\n";
+        let opts = Options {
+            force: true,
+            ..Options::default()
+        };
+        let (out, decision, _) = apply(input, "body\n", false, opts);
+        assert_eq!(decision, Decision::Skip, "the real region is the one found");
+        assert!(out.starts_with(
+            "intro\n\nread up to the marker line (`<!-- ===PROFILE=== -->`) first,\n\
+             then stop at `<!-- ===/PROFILE=== -->`.\n\n"
+        ));
+        assert_eq!(out.matches("<!-- ===/PROFILE=== -->").count(), 2);
+        assert!(out.contains("sha256="), "the real region was adopted");
+    }
+
+    #[test]
+    fn a_marker_in_the_other_comment_style_is_not_found() {
+        let input = "the hash form `# ===PROFILE===` in prose\n\n\
+                     <!-- ===PROFILE=== -->\nbody\n<!-- ===/PROFILE=== -->\n";
+        let (_, decision, _) = apply(input, "body\n", false, Options::default());
+        assert_eq!(decision, Decision::Skip);
+
+        let hash_only = "# ===PROFILE===\nbody\n# ===/PROFILE===\n";
+        let err = MarkerSpan::new(hash_only, "PROFILE", "body\n", HTML, None, false).unwrap_err();
+        assert!(err.to_string().contains("not found"), "got: {err}");
+    }
+
+    #[test]
+    fn a_second_begin_marker_is_refused_with_both_line_numbers() {
+        let input =
+            "intro\n\n```\n<!-- ===PROFILE=== -->\nexample\n<!-- ===/PROFILE=== -->\n```\n\n\
+                     <!-- ===PROFILE=== -->\nbody\n<!-- ===/PROFILE=== -->\n";
+        let err = MarkerSpan::new(input, "PROFILE", "body\n", HTML, None, false).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("lines 4, 9"), "got: {msg}");
+        assert!(msg.contains("holds it once"), "got: {msg}");
+    }
+
+    #[test]
+    fn an_indented_marker_is_still_a_marker() {
+        let input = "  <!-- ===PROFILE=== -->\nbody\n  <!-- ===/PROFILE=== -->\n";
+        let (out, decision, _) = apply(input, "body\n", false, Options::default());
+        assert_eq!(decision, Decision::Skip);
+        assert!(out.contains("sha256="));
+    }
+
+    #[test]
+    fn a_marker_name_is_limited_to_safe_characters() {
+        for bad in ["a b", "a=b", "/x", "x/", "a>b", "P-->"] {
+            let err = MarkerSpan::new("", bad, "b", HTML, None, true).unwrap_err();
+            assert!(err.to_string().contains("ASCII letters"), "{bad}: {err}");
+        }
+        for good in ["P", "profile-2", "a.b_c"] {
+            assert!(
+                MarkerSpan::new("", good, "b", HTML, None, true).is_ok(),
+                "{good}"
+            );
+        }
     }
 
     #[test]

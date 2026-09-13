@@ -6,6 +6,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 `cfggraft` and `cfggraft-cli` are versioned together and released as one.
 
+## [0.2.0] - unreleased
+
+### Changed
+
+- `region`: a marker is now a whole line in the configured comment style —
+  optional indentation, the comment opener, `===NAME===` or `===/NAME===`, and
+  for `html` the closer ending the same line. A line that merely mentions the
+  marker, in prose, in backticks or mid-line, is no longer taken for one, and a
+  marker in the other comment style is not found. Marker names are limited to
+  ASCII letters, digits, `_`, `-` and `.`.
+- `region`: a file holding the same begin marker twice is refused, with both
+  line numbers, instead of the first occurrence winning silently.
+- `region --retract` is an error rather than a no-op. The span is always
+  declared, so there is nothing for the flag to remove.
+
+### Fixed
+
+- `region` matched markers by substring, so a prose line that mentioned the
+  marker name was taken for the begin marker. The real region below was then
+  read as part of the body and reported as a conflict, and adopting it with
+  `--force` — the documented step — rewrote the sentence into a generated
+  marker line and left the real region orphaned beneath it.
+  ([#1](https://github.com/ynishi/cfggraft/issues/1))
+
 ## [0.1.1] - 2026-09-12
 
 ### Fixed
@@ -46,5 +70,6 @@ First release.
   rename, with the original mode carried over.
 - Exit status 2 reserved for drift alone, distinct from failure (1).
 
+[0.2.0]: https://github.com/ynishi/cfggraft/releases/tag/v0.2.0
 [0.1.1]: https://github.com/ynishi/cfggraft/releases/tag/v0.1.1
 [0.1.0]: https://github.com/ynishi/cfggraft/releases/tag/v0.1.0

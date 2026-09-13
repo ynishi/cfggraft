@@ -85,7 +85,7 @@ struct Common {
     #[arg(long)]
     force: bool,
 
-    /// Remove items this tool wrote that are no longer declared.
+    /// Remove items this tool wrote that are no longer declared (merge only).
     #[arg(long)]
     retract: bool,
 
@@ -120,8 +120,8 @@ struct MergeArgs {
 
 #[derive(Args)]
 struct RegionArgs {
-    /// Marker name. A long-lived contract — renaming it orphans every file
-    /// already carrying the old name.
+    /// Marker name: ASCII letters, digits, `_`, `-` and `.`. A long-lived
+    /// contract — renaming it orphans every file already carrying the old name.
     #[arg(long, value_name = "NAME")]
     marker: String,
 
@@ -306,6 +306,16 @@ fn build_region(
     init: bool,
     common: &Common,
 ) -> Result<MarkerSpan> {
+    // The span is always declared — the body is an argument — so there is never
+    // an item that is no longer declared for the flag to remove. Refusing is
+    // better than ignoring it: a flag that does nothing while looking accepted
+    // is read as "the region was removed" until the file is opened.
+    if common.retract {
+        return Err(Error::invalid(
+            "--retract does not apply to region: the span is always declared. \
+             To remove a region, delete its marker lines and what lies between them",
+        ));
+    }
     let from_stdin = body == Path::new("-");
     if from_stdin && common.file.is_none() {
         return Err(Error::invalid(
@@ -463,6 +473,30 @@ mod tests {
     #[test]
     fn cli_definition_is_valid() {
         Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn region_rejects_retract_instead_of_ignoring_it() {
+        let cli = Cli::try_parse_from([
+            "cfggraft",
+            "region",
+            "--marker",
+            "P",
+            "--body",
+            "-",
+            "--file",
+            "x",
+            "--retract",
+        ])
+        .unwrap();
+        let Cmd::Region(a) = cli.cmd else {
+            panic!("expected region")
+        };
+        let err = build_region(&a.marker, &a.body, a.comment, None, false, &a.common).unwrap_err();
+        assert!(
+            err.to_string().contains("does not apply to region"),
+            "got: {err}"
+        );
     }
 
     fn entry(decision: Decision, overridden: bool) -> Entry {

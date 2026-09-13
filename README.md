@@ -124,6 +124,18 @@ all-or-nothing; everything outside the markers is theirs.
 `--init` appends the region when the marker is absent. `--comment hash` uses `#`
 instead of `<!-- -->` for shell, toml and yaml.
 
+A marker is a whole line in that comment style: optional indentation, the
+comment opener, `===NAME===` or `===/NAME===`, and for `html` the `-->` closing
+the same line. Text after the token inside the comment is fine — that is where
+the digest lives. A line that merely mentions the marker, in prose, in backticks
+or mid-line, is not a marker, and neither is a marker in the other comment
+style. Fenced code blocks are not tracked, so an example region in a file that
+also holds the real one needs a different name; a file holding the same begin
+marker twice is refused. Names are ASCII letters, digits, `_`, `-` and `.`.
+
+`--retract` does not apply to `region`: the span is always declared, so there is
+nothing for it to remove. Passing it is an error.
+
 **The marker name is a long-lived contract.** Renaming it orphans every file
 carrying the old name: the span stops being found and a second region gets
 appended below the first.
@@ -152,7 +164,7 @@ from *there is no difference* is a green light that checks nothing.
 | `--check` | report only; writes nothing anywhere. This is the drift check. |
 | `--verbose` | also list what was already in place. |
 | `--force` | overwrite values cfggraft cannot claim, discarding them. |
-| `--retract` | remove items cfggraft wrote that are no longer declared. |
+| `--retract` | remove items cfggraft wrote that are no longer declared. `merge` only. |
 | `--prior-store PATH` | where to keep the record of what cfggraft has written. |
 
 Without `--in-place`, the result goes to stdout — on drift, byte for byte the
